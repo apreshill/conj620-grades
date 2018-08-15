@@ -1,0 +1,124 @@
+---
+title: "CONJ 620: Grades"
+subtitle: "Most recent update: 2018-07-31"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(DT)
+library(wesanderson)
+sakai <- read_csv(here::here("data", "sakai.csv"))
+dc <- read_csv(here::here("data", "dc.csv"))
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Labs (non-integrative)
+
+Note: you'll be able to drop your 3 lowest labs- the grades below do not take that into account.
+
+```{r}
+int_labs <- c("lab_06a", "lab_06b")
+labs <- sakai %>% 
+  filter(!lab %in% int_labs)
+  
+total_labs <- labs %>% 
+  distinct(lab) %>% 
+  tally() %>% 
+  pull()
+
+# drop 3 lowest
+# to do later
+labs_to_grade <- total_labs - 3
+labs_keep <- labs %>% 
+  arrange(fake_name, grade) %>% 
+  group_by(fake_name) %>% 
+  top_n(labs_to_grade) %>% 
+  sample_n(labs_to_grade)
+
+lab_grades <- labs %>% 
+  count(fake_name, grade) %>% 
+  spread(grade, n, fill = 0) %>% 
+  select(fake_name, check_plus = `3`, check = `2`, 
+         check_minus = `1`, miss_late = `0`) %>% 
+  mutate(lab_grade = case_when(
+    # solid = A
+    check == total_labs ~ 90,
+    # if equal just cancel each other out
+    check_minus == check_plus & miss_late == 0 ~ 90,
+    # if no check_minuses (or missed late ones)
+    check_minus == 0 & 
+      check_plus == (.2*total_labs) & 
+      check == (total_labs - check_plus) ~ 92,
+    check_minus == 0 & 
+      check_plus == (.4*total_labs) & 
+      check == (total_labs - check_plus) ~ 95,
+    check_minus == 0 & 
+      check_plus > (.4*total_labs) & 
+      check == (total_labs - check_plus) ~ 100,
+    check_plus == 0 & miss_late == 0 ~ 100*(check/total_labs),
+    check_plus == 0 & miss_late > 0 ~ 100*((check - miss_late)/total_labs)
+  ))
+
+lab_grades %>% 
+  datatable(rownames = FALSE,
+            class = 'cell-border stripe',
+            filter = list(position = 'top'),
+            options = list(pageLength = nrow(lab_grades), 
+                           autoWidth = TRUE,
+                           bInfo = FALSE,
+                           paging = FALSE),
+            escape = FALSE)
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Labs
+
+```{r}
+ggplot(labs, aes(x = lab, fill = as.factor(grade))) +
+  geom_bar() +
+  scale_fill_manual(values = wes_palette("Royal2")[c(1, 3:5)], 
+                    name = "grade",
+                    labels=c("missed/late", "minus", "check", "plus")) +
+  labs(x = "") +
+  theme_minimal()
+```
+
+### DataCamp
+
+```{r}
+dc_out_of <- dc %>% 
+  distinct(course) %>% 
+  tally() %>% 
+  pull()
+
+# 80% of assignments on time get an A
+# so far, all courses have had 4 chapters
+dc %>% 
+  count(fake_name, wt = completed) %>% 
+  mutate(prop = (n / dc_out_of),
+         dc_grade = case_when(
+           between(prop, .9, 1) ~ 100,
+           between(prop, .8, .89) ~ 90,
+           between(prop, .7, .79) ~ 70,
+           TRUE ~ 60
+         )) %>% 
+  datatable(rownames = FALSE,
+            class = 'cell-border stripe',
+            filter = list(position = 'top'),
+            options = list(pageLength = nrow(dc), 
+                           autoWidth = TRUE,
+                           bInfo = FALSE,
+                           paging = FALSE),
+            escape = FALSE)
+```
+
