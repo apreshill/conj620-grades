@@ -1,6 +1,5 @@
 ---
 title: "CONJ 620: Grades"
-subtitle: "Most recent update: 2018-07-31"
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
@@ -19,6 +18,8 @@ dc <- read_csv(here::here("data", "dc.csv"))
 
 Labs
 ===================================== 
+
+Most recent update: 2018-07-31
 
 Column {data-width=650}
 -----------------------------------------------------------------------
@@ -130,8 +131,6 @@ Integrative Labs
 DataCamp
 =====================================  
 
-Column {data-width=800}
------------------------------------------------------------------------
 
 ### DataCamp Courses Completed
 
@@ -154,7 +153,7 @@ dc %>%
          )) %>% 
   datatable(rownames = FALSE,
             class = 'cell-border stripe',
-            filter = list(position = 'top'),
+            filter = list(position = 'center'),
             options = list(pageLength = nrow(dc), 
                            autoWidth = TRUE,
                            bInfo = FALSE,
