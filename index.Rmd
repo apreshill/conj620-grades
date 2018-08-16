@@ -103,11 +103,13 @@ Column {data-width=350}
 ### Grades by lab (raw)
 
 ```{r}
-ggplot(labs, aes(x = lab, fill = as.factor(grade))) +
+labs %>% 
+  filter(!grade == 0) %>% 
+  ggplot(., aes(x = lab, fill = as.factor(grade))) +
   geom_bar(position = "fill") +
-  scale_fill_manual(values = wes_palette("Royal2")[c(1, 3:5)], 
+  scale_fill_manual(values = wes_palette("Royal2")[c(5:3)], 
                     name = "",
-                    labels=c("missed/late", "minus", "check", "plus")) +
+                    labels=c("minus", "check", "plus")) +
   labs(x = "", y = "percent of students") + 
   scale_y_continuous(labels = scales::percent) +
   theme_minimal() +
