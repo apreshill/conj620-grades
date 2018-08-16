@@ -156,9 +156,9 @@ dc %>%
          )) %>% 
   datatable(rownames = FALSE,
             class = 'cell-border stripe',
-            filter = list(position = 'center'),
+            filter = list(position = 'top'),
             options = list(pageLength = nrow(dc), 
-                           autoWidth = TRUE,
+                           #autoWidth = TRUE,
                            bInfo = FALSE,
                            paging = FALSE),
             escape = FALSE)
