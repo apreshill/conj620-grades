@@ -2,18 +2,18 @@ library(tidyverse)
 source("generate-fake.R")
 set.seed(2018)
 
-student_names <- read_csv("/Users/hillali/Box Sync/CONJ 620 Grades/sakai_tidy-2018-07-31.csv") %>% 
+student_names <- read_csv("/Users/hillali/Box Sync/CONJ 620 Grades/2018-08-16_lab-grades-tidy.csv") %>% 
   select(name) %>% 
   distinct(name)
 
 student_names <- student_names %>% 
   bind_cols(make_fake_name(nrow(student_names)))
 
-sakai <- read_csv("/Users/hillali/Box Sync/CONJ 620 Grades/sakai_tidy-2018-07-31.csv") %>% 
+sakai <- read_csv("/Users/hillali/Box Sync/CONJ 620 Grades/2018-08-16_lab-grades-tidy.csv") %>% 
   left_join(student_names) %>% 
   select(-name, -email) 
   
-dc <- read_csv("/Users/hillali/Box Sync/CONJ 620 Grades/datacamp_tidy-2018-07-31.csv") %>% 
+dc <- read_csv("/Users/hillali/Box Sync/CONJ 620 Grades/2018-08-16_datacamp-grades-tidy.csv") %>% 
   left_join(student_names) %>% 
   select(-name, -email)
 

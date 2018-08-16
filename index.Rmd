@@ -19,7 +19,7 @@ dc <- read_csv(here::here("data", "dc.csv"))
 Labs
 ===================================== 
 
-Most recent update: 2018-07-31
+Most recent update: 2018-08-16
 
 Column {data-width=650}
 -----------------------------------------------------------------------
@@ -63,25 +63,26 @@ lab_grades <- labs %>%
          adj_bounce = 2*floor((adj_plus / adj_check)*total_labs)) %>% 
   mutate(lab_grade = case_when(
     # pluses
-    adj_plus == (.2*total_labs) & 
+    adj_plus == floor(.2*total_labs) & 
       adj_check == total_labs ~ 92,
-    adj_plus == (.4*total_labs) & 
-      adj_check == total_labs ~ 95,
-    adj_plus > (.4*total_labs) & 
+    adj_plus == floor(.4*total_labs) & 
+      adj_check == total_labs ~ 96,
+    adj_plus > floor(.4*total_labs) & 
       adj_check == total_labs ~ 100,
     # solid = A
     adj_check == total_labs ~ 90,
-    adj_check == .8*total_labs ~ 80 + adj_bounce,
-    adj_check == .7*total_labs ~ 70 + adj_bounce,
-    adj_check == .6*total_labs ~ 60 + adj_bounce,
-    adj_check < .6*total_labs ~ 50 + adj_bounce,
+    between(adj_check, floor(.8*total_labs), ceiling(.8*total_labs)) ~ 80 + adj_bounce,
+    between(adj_check, floor(.7*total_labs), ceiling(.7*total_labs)) ~ 75 + adj_bounce,
+    between(adj_check, floor(.6*total_labs), ceiling(.6*total_labs)) ~ 70 + adj_bounce,
+    adj_check < floor(.6*total_labs) ~ 65 + adj_bounce,
     # if minuses remain
     adj_plus == 0 & adj_ratio >= 4 ~ 80,
-    adj_plus == 0 & between(adj_ratio, 3, 3.9) ~ 70,
-    adj_plus == 0 & between(adj_ratio, 2, 2.9) ~ 60,
-    adj_plus == 0 & between(adj_ratio, 1, 1.9) ~ 50
+    adj_plus == 0 & between(adj_ratio, 3, 3.9) ~ 75,
+    adj_plus == 0 & between(adj_ratio, 2, 2.9) ~ 70,
+    adj_plus == 0 & between(adj_ratio, 1, 1.9) ~ 65
   )) %>% 
-  select(-starts_with("adj_"))
+  select(-starts_with("adj_")) %>% 
+  identity()
   
 lab_grades %>% 
   datatable(rownames = FALSE,
@@ -117,7 +118,7 @@ ggplot(labs, aes(x = lab, fill = as.factor(grade))) +
 
 ```{r}
 ggplot(lab_grades, aes(x = lab_grade)) +
-  geom_histogram(colour = "white", binwidth = 5, fill = wes_palette("Royal2")[5]) +
+  geom_histogram(colour = "white", binwidth = 3, fill = wes_palette("Royal2")[5]) +
   labs(x = "overall grade on lab portion") +
   theme_minimal() 
 ```
@@ -144,7 +145,7 @@ dc_out_of <- dc %>%
 # so far, all courses have had 4 chapters
 dc %>% 
   count(fake_name, wt = completed) %>% 
-  mutate(prop = (n / dc_out_of),
+  mutate(prop = round(n / dc_out_of, 2),
          dc_grade = case_when(
            between(prop, .9, 1) ~ 100,
            between(prop, .8, .89) ~ 90,
