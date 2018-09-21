@@ -12,42 +12,62 @@ library(flexdashboard)
 library(tidyverse)
 library(DT)
 library(wesanderson)
-sakai <- read_csv(here::here("data", "sakai.csv"))
+sakai <- read_csv(here::here("data", "sakai.csv"),
+                  na = "No Submission")
 dc <- read_csv(here::here("data", "dc.csv"))
 ```
 
 Labs
 ===================================== 
 
-Most recent update: 2018-08-16
+Most recent update: 2018-09-19
 
 Column {data-width=650}
 -----------------------------------------------------------------------
 
 ### Labs (non-integrative)
 
-Note: you'll be able to drop your 3 lowest labs- the grades below do not take that into account. 
+Note: The 3 lowest labs grades have been dropped, and a curve was applied such that a "check" on all 11 labs resulted in a grade of 90.
 
 ```{r}
-int_labs <- c("lab_06a", "lab_06b")
+int_labs <- c("lab_06a", "lab_06b", 
+              "lab_11a", "lab_11b", 
+              "lab_15a", "lab_15b",
+              "lab_19a", "lab_19b")
+
 labs <- sakai %>% 
   filter(!lab %in% int_labs)
-  
+
+# there are 14 labs
 total_labs <- labs %>% 
   distinct(lab) %>% 
   tally() %>% 
   pull()
 
 # drop 3 lowest
-# to do later
 labs_to_grade <- total_labs - 3
 labs_keep <- labs %>% 
-  arrange(fake_name, grade) %>% 
+  arrange(fake_name, desc(grade)) %>% 
   group_by(fake_name) %>% 
-  top_n(labs_to_grade) %>% 
-  sample_n(labs_to_grade)
+  top_n(labs_to_grade, grade) %>% 
+  filter(row_number() %in% c(1:labs_to_grade)) %>% 
+  ungroup()
 
-lab_grades <- labs %>% 
+# check this
+# should be 11 each
+#labs_keep %>% 
+#  count(fake_name, sort = TRUE)
+
+# make sums
+# I want:
+# a x0 = 22 --> y0 = 90
+# a x1 = 30 --> y1 = 100
+# 33 is max possible, but 30 is max in data
+lab_sums <- labs_keep %>% 
+  group_by(fake_name) %>% 
+  summarize(lab_grades = ceiling(90 + 1.25 * (sum(grade) - 22)))
+
+lab_grades <- labs_keep %>% 
   count(fake_name, grade) %>% 
   spread(grade, n, fill = 0) %>% 
   select(fake_name, check_plus = `3`, check = `2`, 
@@ -63,25 +83,26 @@ lab_grades <- labs %>%
          adj_bounce = 2*floor((adj_plus / adj_check)*total_labs)) %>% 
   mutate(lab_grade = case_when(
     # pluses
-    adj_plus == floor(.2*total_labs) & 
-      adj_check == total_labs ~ 92,
-    adj_plus == floor(.4*total_labs) & 
-      adj_check == total_labs ~ 96,
-    adj_plus > floor(.4*total_labs) & 
-      adj_check == total_labs ~ 100,
+    adj_plus == floor(.2*labs_to_grade) & 
+      adj_check == labs_to_grade ~ 92,
+    adj_plus == floor(.3*labs_to_grade) & 
+      adj_check == labs_to_grade ~ 96,
+    adj_plus >= floor(.4*labs_to_grade) & 
+      adj_check == labs_to_grade ~ 100,
     # solid = A
-    adj_check == total_labs ~ 90,
-    between(adj_check, floor(.8*total_labs), ceiling(.8*total_labs)) ~ 80 + adj_bounce,
-    between(adj_check, floor(.7*total_labs), ceiling(.7*total_labs)) ~ 75 + adj_bounce,
-    between(adj_check, floor(.6*total_labs), ceiling(.6*total_labs)) ~ 70 + adj_bounce,
-    adj_check < floor(.6*total_labs) ~ 65 + adj_bounce,
+    adj_check == labs_to_grade ~ 90,
+    between(adj_check, floor(.8*labs_to_grade), ceiling(.8*labs_to_grade)) ~ 80 + adj_bounce,
+    between(adj_check, floor(.7*labs_to_grade), ceiling(.7*labs_to_grade)) ~ 75 + adj_bounce,
+    between(adj_check, floor(.6*labs_to_grade), ceiling(.6*labs_to_grade)) ~ 70 + adj_bounce,
+    adj_check < floor(.6*labs_to_grade) ~ 65 + adj_bounce,
     # if minuses remain
     adj_plus == 0 & adj_ratio >= 4 ~ 80,
     adj_plus == 0 & between(adj_ratio, 3, 3.9) ~ 75,
     adj_plus == 0 & between(adj_ratio, 2, 2.9) ~ 70,
     adj_plus == 0 & between(adj_ratio, 1, 1.9) ~ 65
   )) %>% 
-  select(-starts_with("adj_")) %>% 
+  left_join(lab_sums) %>% 
+  select(-starts_with("adj_"), -lab_grade) %>% 
   identity()
   
 lab_grades %>% 
@@ -113,13 +134,14 @@ labs %>%
   labs(x = "", y = "percent of students") + 
   scale_y_continuous(labels = scales::percent) +
   theme_minimal() +
-  theme(legend.position="bottom")
+  theme(legend.position="bottom",
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
 ### Overall lab grades
 
 ```{r}
-ggplot(lab_grades, aes(x = lab_grade)) +
+ggplot(lab_grades, aes(x = lab_grades)) +
   geom_histogram(colour = "white", binwidth = 3, fill = wes_palette("Royal2")[5]) +
   labs(x = "overall grade on lab portion") +
   theme_minimal() 
@@ -128,7 +150,72 @@ ggplot(lab_grades, aes(x = lab_grade)) +
 
 
 Integrative Labs
-=====================================  
+===================================== 
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Integrative Labs
+
+There were four of these total, each worth 5 points (2 pts for initial submission; 3 for self-assessment).
+
+```{r}
+# 5 int labs
+int_labs <- c("lab_06a", "lab_06b", 
+              "lab_11a", "lab_11b", 
+              "lab_15a", "lab_15b",
+              "lab_19a", "lab_19b")
+
+ilabs <- sakai %>% 
+  filter(lab %in% int_labs) %>% 
+  mutate(lab_num = parse_number(lab)) %>% 
+  group_by(fake_name, lab_num) %>% 
+  summarize(ilab_grade = sum(grade))
+
+ilabs_grades <- ilabs %>% 
+  group_by(fake_name) %>% 
+  summarize(ilab_sum = sum(ilab_grade)) %>% 
+  mutate(ilab_sum = if_else(fake_name == "cocky-keller", ilab_sum + 5, ilab_sum)) %>% 
+  mutate(ilab_prop = (ilab_sum / 20) * 100) 
+
+ilabs_grades %>% 
+  datatable(rownames = FALSE,
+            class = 'cell-border stripe',
+            filter = list(position = 'top'),
+            options = list(pageLength = nrow(ilabs), 
+                           autoWidth = TRUE,
+                           bInfo = FALSE,
+                           paging = FALSE),
+            escape = FALSE)
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Grades for each integrative lab (n = 4)
+
+```{r}
+ilabs %>% 
+  filter(!ilab_grade == 0) %>% 
+  ggplot(., aes(x = as.factor(lab_num), fill = as.factor(ilab_grade))) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = wes_palette("Royal2")[c(5:1)], 
+                    name = "") +
+  labs(x = "", y = "percent of students") + 
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal() +
+  theme(legend.position="bottom",
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+### Overall integrative lab grades
+
+```{r}
+ggplot(ilabs_grades, aes(x = ilab_prop)) +
+  geom_histogram(colour = "white", binwidth = 3, fill = wes_palette("Royal2")[5]) +
+  labs(x = "") +
+  theme_minimal() 
+```
 
 
 DataCamp
@@ -145,7 +232,7 @@ dc_out_of <- dc %>%
 
 # 80% of assignments on time get an A
 # so far, all courses have had 4 chapters
-dc %>% 
+dc_grades <- dc %>% 
   count(fake_name, wt = completed) %>% 
   mutate(prop = round(n / dc_out_of, 2),
          dc_grade = case_when(
@@ -153,7 +240,9 @@ dc %>%
            between(prop, .8, .89) ~ 90,
            between(prop, .7, .79) ~ 70,
            TRUE ~ 60
-         )) %>% 
+         ))
+
+dc_grades %>% 
   datatable(rownames = FALSE,
             class = 'cell-border stripe',
             filter = list(position = 'top'),
@@ -163,3 +252,47 @@ dc %>%
                            paging = FALSE),
             escape = FALSE)
 ```
+
+Final Grades
+=====================================  
+
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Weighted combined final grades
+
+```{r}
+combined <- lab_grades %>% 
+  left_join(ilabs_grades) %>% 
+  left_join(dc_grades) %>% 
+  select(fake_name, lab_grades, ilab_prop, dc_grade) %>% 
+  mutate(final = ceiling((.4 * lab_grades) +
+           (.4 * dc_grade) +
+           (.2 * ilab_prop)))
+
+combined %>% 
+  datatable(rownames = FALSE,
+            class = 'cell-border stripe',
+            filter = list(position = 'top'),
+            options = list(pageLength = nrow(combined), 
+                           #autoWidth = TRUE,
+                           bInfo = FALSE,
+                           paging = FALSE),
+            escape = FALSE)
+```
+
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+
+### Final combined grades
+
+```{r}
+ggplot(combined, aes(x = final)) +
+  geom_histogram(colour = "white", binwidth = 5, fill = wes_palette("Royal2")[5]) +
+  labs(x = "") +
+  theme_minimal() 
+```
+
