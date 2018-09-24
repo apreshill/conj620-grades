@@ -157,7 +157,7 @@ Column {data-width=650}
 
 ### Integrative Labs
 
-There were four of these total, each worth 5 points (2 pts for initial submission; 3 for self-assessment).
+There were four of these total, each worth 5 points (2 pts for initial submission; 3 for self-assessment). A curve of 10 pts was added to the final sum.
 
 ```{r}
 # 5 int labs
@@ -170,13 +170,17 @@ ilabs <- sakai %>%
   filter(lab %in% int_labs) %>% 
   mutate(lab_num = parse_number(lab)) %>% 
   group_by(fake_name, lab_num) %>% 
-  summarize(ilab_grade = sum(grade))
+  summarize(ilab_grade = sum(grade)) %>% 
+  ungroup() %>% 
+  mutate(ilab_grade = if_else(lab_num == 19 & fake_name == "clever-neumann", 
+         0, ilab_grade))
 
 ilabs_grades <- ilabs %>% 
   group_by(fake_name) %>% 
   summarize(ilab_sum = sum(ilab_grade)) %>% 
   mutate(ilab_sum = if_else(fake_name == "cocky-keller", ilab_sum + 5, ilab_sum)) %>% 
-  mutate(ilab_prop = (ilab_sum / 20) * 100) 
+  mutate(ilab_prop = (ilab_sum / 20) * 100) %>% 
+  mutate(ilab_curved = ilab_prop + 10)
 
 ilabs_grades %>% 
   datatable(rownames = FALSE,
@@ -208,10 +212,10 @@ ilabs %>%
         axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
-### Overall integrative lab grades
+### Overall integrative lab grades (curved)
 
 ```{r}
-ggplot(ilabs_grades, aes(x = ilab_prop)) +
+ggplot(ilabs_grades, aes(x = ilab_curved)) +
   geom_histogram(colour = "white", binwidth = 3, fill = wes_palette("Royal2")[5]) +
   labs(x = "") +
   theme_minimal() 
@@ -266,10 +270,10 @@ Column {data-width=650}
 combined <- lab_grades %>% 
   left_join(ilabs_grades) %>% 
   left_join(dc_grades) %>% 
-  select(fake_name, lab_grades, ilab_prop, dc_grade) %>% 
+  select(fake_name, lab_grades, ilab_curved, dc_grade) %>% 
   mutate(final = ceiling((.4 * lab_grades) +
            (.4 * dc_grade) +
-           (.2 * ilab_prop)))
+           (.2 * ilab_curved)))
 
 combined %>% 
   datatable(rownames = FALSE,
@@ -294,5 +298,20 @@ ggplot(combined, aes(x = final)) +
   geom_histogram(colour = "white", binwidth = 5, fill = wes_palette("Royal2")[5]) +
   labs(x = "") +
   theme_minimal() 
+```
+
+```{r echo = FALSE}
+# export final grades
+names <- read_csv("/Users/hillali/Box Sync/CONJ 620 Grades/name_key.csv")
+combined <- combined %>% 
+  left_join(names) %>% 
+  mutate(final_grade = case_when(
+    final >= 98 ~ "A+",
+    final >= 90 ~ "A",
+    final >= 80 ~ "B",
+    final >= 70 ~ "C",
+    is.na(final) ~ "I"
+  ))
+write_csv(combined, "final_grades.csv")
 ```
 
