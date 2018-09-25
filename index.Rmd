@@ -20,7 +20,7 @@ dc <- read_csv(here::here("data", "dc.csv"))
 Labs
 ===================================== 
 
-Most recent update: 2018-09-19
+Most recent update: 2018-09-25
 
 Column {data-width=650}
 -----------------------------------------------------------------------
@@ -157,7 +157,7 @@ Column {data-width=650}
 
 ### Integrative Labs
 
-There were four of these total, each worth 5 points (2 pts for initial submission; 3 for self-assessment). A curve of 5 pts was added to the final sum.
+There were four of these total, each worth 5 points (2 pts for initial submission; 3 for self-assessment). A curve of 5 percentage pts was added to the final % score.
 
 ```{r}
 # 5 int labs
@@ -173,7 +173,9 @@ ilabs <- sakai %>%
   summarize(ilab_grade = sum(grade)) %>% 
   ungroup() %>% 
   mutate(ilab_grade = if_else(lab_num == 19 & fake_name == "clever-neumann", 
-         0, ilab_grade))
+         0, ilab_grade)) %>% 
+  mutate(ilab_grade = if_else(lab_num == 15 & fake_name == "vigorous-chandrasekhar", 
+         5, ilab_grade))
 
 ilabs_grades <- ilabs %>% 
   group_by(fake_name) %>% 
@@ -308,11 +310,13 @@ combined <- combined %>%
   mutate(final_grade = case_when(
     final >= 98 ~ "A+",
     final >= 90 ~ "A",
+    final >= 88 ~ "B+",
     final >= 80 ~ "B",
+    final >= 82 ~ "B-",
     final >= 70 ~ "C",
     is.na(final) ~ "I"
   )) %>% 
-  select(name, final_grade)
+  select(name, final_grade, final)
 write_csv(combined, "final_grades.csv")
 ```
 
